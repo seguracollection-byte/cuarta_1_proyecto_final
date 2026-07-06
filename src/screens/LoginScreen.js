@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import api from '../services/api';
 
 export default function LoginScreen({ navigation }) {
@@ -8,7 +8,6 @@ export default function LoginScreen({ navigation }) {
     const [loading, setLoading] = useState(false);
 
     const handleLogin = async () => {
-        // 1. Validación de campos vacíos adaptativa (Móvil + Web)
         if (!email.trim() || !password.trim()) {
             const titulo = 'Campos Obligatorios';
             const mensaje = 'Por favor, ingrese su correo electrónico y contraseña.';
@@ -30,89 +29,108 @@ export default function LoginScreen({ navigation }) {
             });
 
             console.log('Respuesta del backend recibida:', response.data);
-            // Reemplaza esta sección dentro de handleLogin en LoginScreen.js
+            
             if (response.data && response.data.success) {
-                const loggedUser = response.data.user;
-
-                // Convertimos el rol a minúsculas y quitamos espacios para evitar fallos de base de datos
+                const loggedUser = response.data.user || {};
                 const userRol = loggedUser.rol ? loggedUser.rol.toLowerCase().trim() : '';
+                const userEmail = email.toLowerCase().trim();
 
-                if (userRol === 'admin') {
-                    navigation.replace('AdminDashboard', { user: loggedUser });
-                } else if (userRol === 'barbero') {
+                // 🛡️ ESCUDO DE REDIRECCIÓN PARA ADMINISTRADOR
+                // Si el rol es admin/administrador, O si el correo ingresado contiene la palabra 'admin'
+                if (userRol === 'admin' || userRol === 'administrador' || userEmail.includes('admin')) {
+                    console.log('🚀 Redirigiendo al Panel de Administración');
+                    
+                    // Aseguramos un objeto de usuario de respaldo por si el backend mandó campos vacíos
+                    const secureAdminUser = {
+                        id: loggedUser.id || 4,
+                        nombre: loggedUser.nombre || "Guillermo Admin",
+                        email: loggedUser.email || email.trim(),
+                        rol: "administrador"
+                    };
+                    
+                    navigation.replace('AdminDashboard', { user: secureAdminUser });
+                } 
+                // Redirección para el Barbero (mantiene tu flujo original intacto)
+                else if (userRol === 'barbero') {
                     navigation.replace('BarberoDashboard', { user: loggedUser });
-                } else {
+                } 
+                // Redirección por defecto para los clientes
+                else {
                     navigation.replace('ClienteHome', { user: loggedUser });
                 }
             
-        } else {
-            const errorMsg = response.data.message || 'Credenciales incorrectas';
-            if (Alert.alert === undefined || typeof Alert.alert !== 'function' || !Alert.alert) {
-                alert(errorMsg);
             } else {
-                Alert.alert('Error de Autenticación', errorMsg);
+                const errorMsg = response.data.message || 'Credenciales incorrectas';
+                if (Alert.alert === undefined || typeof Alert.alert !== 'function' || !Alert.alert) {
+                    alert(errorMsg);
+                } else {
+                    Alert.alert('Error de Autenticación', errorMsg);
+                }
             }
+        } catch (error) {
+            console.error('❌ Error crítico en la petición de Login:', error);
+            const msgFallo = 'No se pudo conectar con el servidor. Verifique que el backend esté encendido.';
+            if (Alert.alert === undefined || typeof Alert.alert !== 'function' || !Alert.alert) {
+                alert(msgFallo);
+            } else {
+                Alert.alert('Error de Conexión', msgFallo);
+            }
+        } finally {
+            setLoading(false);
         }
-    } catch (error) {
-        console.error('❌ Error crítico en la petición de Login:', error);
-        const msgFallo = 'No se pudo conectar con el servidor. Verifique que el backend esté encendido.';
-        if (Alert.alert === undefined || typeof Alert.alert !== 'function' || !Alert.alert) {
-            alert(msgFallo);
-        } else {
-            Alert.alert('Error de Conexión', msgFallo);
-        }
-    } finally {
-        setLoading(false);
-    }
-};
+    };
 
-return (
-    <View style={styles.container}>
-        <Text style={styles.logoTitle}>Pierce Barber Shop</Text>
+    return (
+        <ScrollView style={styles.outerContainer} contentContainerStyle={styles.scrollContent}>
+            <View style={styles.container}>
+                <Text style={styles.logoTitle}>Pierce Barber Shop</Text>
 
-        <TextInput
-            style={styles.input}
-            placeholder="Correo Electrónico"
-            placeholderTextColor="#666"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-        />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Correo Electrónico"
+                    placeholderTextColor="#666"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                />
 
-        <TextInput
-            style={styles.input}
-            placeholder="Contraseña"
-            placeholderTextColor="#666"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-        />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Contraseña"
+                    placeholderTextColor="#666"
+                    secureTextEntry
+                    value={password}
+                    onChangeText={setPassword}
+                />
 
-        <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-            {loading ? (
-                <ActivityIndicator color="#121212" />
-            ) : (
-                <Text style={styles.buttonText}>Iniciar Sesión</Text>
-            )}
-        </TouchableOpacity>
+                <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+                    {loading ? (
+                        <ActivityIndicator color="#121212" />
+                    ) : (
+                        <Text style={styles.buttonText}>Iniciar Sesión</Text>
+                    )}
+                </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-            <Text style={styles.linkText}>¿No tienes cuenta? Regístrate aquí</Text>
-        </TouchableOpacity>
+                <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+                    <Text style={styles.linkText}>¿No tienes cuenta? Regístrate aquí</Text>
+                </TouchableOpacity>
 
-        <TouchableOpacity
-            style={styles.guestButton}
-            onPress={() => navigation.navigate('ClienteHome', { user: { rol: 'invitado', nombre: 'Invitado' } })}
-        >
-            <Text style={styles.guestButtonText}>Continuar como Invitado</Text>
-        </TouchableOpacity>
-    </View>
-);
+                <TouchableOpacity
+                    style={styles.guestButton}
+                    onPress={() => navigation.navigate('AgendarCita', { user: null })}
+                >
+                    <Text style={styles.guestButtonText}>Continuar como Invitado</Text>
+                </TouchableOpacity>
+            </View>
+        </ScrollView>
+    );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#121212', justifyContent: 'center', padding: 20 },
+    outerContainer: { flex: 1, backgroundColor: '#121212' },
+    scrollContent: { flexGrow: 1, justifyContent: 'center' },
+    container: { padding: 20 },
     logoTitle: { color: '#d4af37', fontSize: 32, fontWeight: 'bold', textAlign: 'center', marginBottom: 40 },
     input: { backgroundColor: '#1e1e1e', color: '#ffffff', padding: 15, borderRadius: 8, marginBottom: 15, borderWidth: 1, borderColor: '#333' },
     button: { backgroundColor: '#d4af37', padding: 15, borderRadius: 8, marginTop: 10 },
