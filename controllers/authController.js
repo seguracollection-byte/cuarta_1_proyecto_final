@@ -56,26 +56,29 @@ const login = async (req, res) => {
         // 3. Generar el Token JWT conteniendo su ID y su Rol
         const token = jwt.sign(
             { id: user.id, rol: user.rol },
-            process.env.JWT_SECRET || 'secretkey_temporal', // Llave de respaldo por si no lee el .env
+            process.env.JWT_SECRET || 'secretkey_temporal', 
             { expiresIn: '8h' }
         );
 
-        // 4. Responder con los datos limpios para la app móvil/web
-        res.json({
+        // Imprimir en la consola de Node para depuración en vivo
+        console.log(`🔑 LOGIN EXITOSO -> Usuario: ${user.nombre} | Rol BD: ${user.rol}`);
+
+        // 4. Responder garantizando que los datos limpios se envíen de manera explícita
+        return res.status(200).json({
             success: true,
             message: 'Login exitoso',
-            token,
+            token: token,
             user: {
-                id: user.id,
-                nombre: user.nombre,
-                email: user.email,
-                rol: user.rol
+                id: Number(user.id),
+                nombre: String(user.nombre),
+                email: String(user.email),
+                rol: String(user.rol).toLowerCase().trim() // Lo mandamos limpio y en minúsculas
             }
         });
 
     } catch (error) {
         console.error('❌ Error real en el proceso de login en Node:', error);
-        res.status(500).json({ success: false, message: 'Error interno del servidor' });
+        return res.status(500).json({ success: false, message: 'Error interno del servidor' });
     }
 };
 
