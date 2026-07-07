@@ -1,15 +1,60 @@
 const pool = require('../config/database'); 
 
-// 1. Obtener todas las citas
+// 1. Obtener todas las citas (Corregido para soportar Clientes Registrados e Invitados de forma segura)
 const getCitas = async (req, res) => {
     try {
-        const [rows] = await pool.query('SELECT * FROM vw_citas_detalladas ORDER BY fecha_hora ASC');
+        // Usamos un query dinámico con LEFT JOIN para evitar colapsos por valores NULL en los invitados
+        const query = `
+            SELECT 
+                c.idcitas AS id,
+                c.fecha_hora,
+                c.usuarios_id,
+                c.invitado_nombre,
+                c.invitado_email,
+                c.invitado_telefono,
+                s.nombre AS servicio,
+                s.precio AS precio,
+                s.descripcion AS servicio_descripcion,
+                b.nombre AS barbero,
+                u.nombre AS cliente_registrado
+            FROM citas c
+            LEFT JOIN servicios s ON c.servicios_idservicios = s.idservicios
+            LEFT JOIN usuarios b ON c.barbero_id = b.id
+            LEFT JOIN usuarios u ON c.usuarios_id = u.id
+            ORDER BY c.fecha_hora ASC
+        `;
+
+        const [rows] = await pool.query(query);
+
+        // Mapeamos los resultados para asegurar que los páneles del frontend lean siempre la misma estructura
+        const citasFormateadas = rows.map(cita => {
+            // Regla de oro: si hay cliente_registrado se usa ese, sino usamos el nombre del invitado
+            let nombreCliente = 'Cliente Invitado';
+            if (cita.cliente_registrado) {
+                nombreCliente = cita.cliente_registrado;
+            } else if (cita.invitado_nombre) {
+                nombreCliente = cita.invitado_nombre;
+            }
+
+            return {
+                id: cita.id,
+                fecha_hora: cita.fecha_hora,
+                servicio: cita.servicio || 'Servicio no especificado',
+                precio: cita.precio || 0,
+                barbero: cita.barbero || 'Barbero no asignado',
+                cliente: nombreCliente, // El frontend leerá este campo unificado directamente
+                email: cita.invitado_email || '',
+                telefono: cita.invitado_telefono || '',
+                es_invitado: !cita.usuarios_id
+            };
+        });
+
         res.json({
             success: true,
-            data: rows
+            data: citasFormateadas
         });
     } catch (error) {
-        console.error('Error al obtener citas de la vista:', error);
+        console.error('❌ Error al obtener o procesar el listado de citas:', error);
         res.status(500).json({ success: false, message: 'Error interno del servidor' });
     }
 };
