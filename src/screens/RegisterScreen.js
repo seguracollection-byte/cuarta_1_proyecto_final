@@ -94,6 +94,14 @@ export default function RegisterScreen({ navigation }) {
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
                 <Text style={styles.linkText}>¿Ya tienes cuenta? Inicia sesión</Text>
             </TouchableOpacity>
+
+            {/* 🆕 BOTÓN ESTRATÉGICO DE REGRESAR AL LOGIN */}
+            <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => navigation.navigate('Login')}
+            >
+                <Text style={styles.backButtonText}>Regresar a Login</Text>
+            </TouchableOpacity>
         </ScrollView>
     );
 }
@@ -104,5 +112,8 @@ const styles = StyleSheet.create({
     input: { backgroundColor: '#1e1e1e', color: '#fff', padding: 15, borderRadius: 8, marginBottom: 15, fontSize: 16 },
     button: { backgroundColor: '#d4af37', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10 },
     buttonText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
-    linkText: { color: '#aaa', textAlign: 'center', marginTop: 25, fontSize: 14 }
+    linkText: { color: '#aaa', textAlign: 'center', marginTop: 25, fontSize: 14 },
+    // 🆕 Estilos del nuevo botón alineados con el diseño oscuro de Pierce Barber Shop
+    backButton: { marginTop: 30, padding: 10 },
+    backButtonText: { color: '#d4af37', textAlign: 'center', fontSize: 15, textDecorationLine: 'underline' }
 });

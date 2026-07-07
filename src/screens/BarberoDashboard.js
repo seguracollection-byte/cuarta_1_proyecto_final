@@ -67,6 +67,14 @@ export default function BarberoDashboard({ route, navigation }) {
           </View>
         )}
 
+        {/* NUEVO BOTÓN: Agendar Cita desde Barbero */}
+        <TouchableOpacity 
+          style={[styles.primaryButton, { backgroundColor: '#2a2e3d', borderWidth: 1, borderColor: '#4a526b', marginBottom: 10 }]} 
+          onPress={() => navigation.navigate('AgendarCita', { user })}
+        >
+          <Text style={[styles.primaryButtonText, { color: '#ffffff', fontWeight: '600' }]}>➕ Agendar Nueva Cita</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.primaryButton} onPress={fetchMisCitas}>
           <Text style={styles.primaryButtonText}>🔄 Actualizar Mi Agenda</Text>
         </TouchableOpacity>

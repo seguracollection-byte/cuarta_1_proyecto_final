@@ -65,6 +65,27 @@ export default function AgendarCitaScreen({ route, navigation }) {
     }
 
     const fechaHoraFinal = `${fechaStr} ${horaStr}:00`;
+
+    // 🔒 REQUERIMIENTO 2: Validar choque de citas para el mismo barbero
+    try {
+      const resCitas = await api.get('/citas');
+      const listaCitasExistentes = resCitas.data.data || resCitas.data;
+      
+      if (Array.isArray(listaCitasExistentes)) {
+        const citaDuplicada = listaCitasExistentes.find(cita => 
+          String(cita.barbero_id) === String(barberoSeleccionado) && 
+          String(cita.fecha_hora) === String(fechaHoraFinal)
+        );
+
+        if (citaDuplicada) {
+          alert('⚠️ Lo sentimos, este barbero ya tiene una cita agendada para esta hora exacta. Por favor selecciona otro horario o cambia de barbero.');
+          return; // Detiene el flujo de guardado
+        }
+      }
+    } catch (checkError) {
+      console.warn("No se pudo verificar la disponibilidad en tiempo real, procediendo con precaución:", checkError);
+    }
+
     const usuarioIdFinal = user && user.id ? user.id : null;
 
     const payload = {
@@ -81,14 +102,29 @@ export default function AgendarCitaScreen({ route, navigation }) {
       const response = await api.post('/citas', payload);
       if (response.data.success || response.status === 200 || response.status === 201) {
         alert('¡Éxito! Tu cita ha sido agendada correctamente.');
+
+        if (isInvitado) {
+          navigation.navigate('Login');
+          return;
+        }
+
         const userRol = user?.rol ? user.rol.toLowerCase().trim() : 'cliente';
 
-        if (userRol === 'admin') {
-          navigation.replace('AdminDashboard', { user });
-        } else if (userRol === 'barbero') {
-          navigation.replace('BarberoDashboard', { user });
-        } else {
-          navigation.replace('ClienteHome', { user });
+        try {
+          if (userRol === 'admin') {
+            navigation.navigate('AdminDashboard', { user });
+          } else if (userRol === 'barbero') {
+            navigation.navigate('BarberoDashboard', { user });
+          } else {
+            navigation.navigate('ClienteHome', { user });
+          }
+        } catch (navError) {
+          console.warn("Ruta específica no encontrada en el Stack, aplicando fallback goBack:", navError);
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            navigation.navigate('Login');
+          }
         }
       }
     } catch (error) {
@@ -113,15 +149,19 @@ export default function AgendarCitaScreen({ route, navigation }) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>1. Selecciona el Servicio en Pierce Barber Shop</Text>
         {servicios.map((item) => {
-          let imageUrl = 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=500&auto=format&fit=crop&q=60';
+          let imageUrl = 'https://images.unsplash.com/photo-1635273051839-003bf06a8751?q=80&w=987&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D';
           const nombreLower = item.nombre ? item.nombre.toLowerCase() : '';
 
           if (nombreLower.includes('barba') || nombreLower.includes('afeitado')) {
-            imageUrl = 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=500&auto=format&fit=crop&q=60';
+            imageUrl = 'https://plus.unsplash.com/premium_photo-1661270415179-f7bcff006edb?q=80&w=2069&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D';
           } else if (nombreLower.includes('tinte') || nombreLower.includes('color')) {
             imageUrl = 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=500&auto=format&fit=crop&q=60';
           } else if (nombreLower.includes('facial') || nombreLower.includes('mascarilla')) {
-            imageUrl = 'https://images.unsplash.com/photo-1512290923902-8a9f81dc236c?w=500&auto=format&fit=crop&q=60';
+            imageUrl = 'https://images.unsplash.com/photo-1653875700329-a7c8aca94c95?q=80&w=987&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D';
+          } else if (nombreLower.includes('depilacion') || nombreLower.includes('depilación') || nombreLower.includes('cejas')) {
+            imageUrl = 'https://images.unsplash.com/photo-1653875700318-c235ce6eb128?q=80&w=987&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D';
+          } else if (nombreLower.includes('vip') || nombreLower.includes('combo premium')) {
+            imageUrl = 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=500&auto=format&fit=crop&q=60';
           }
 
           return (
@@ -134,7 +174,9 @@ export default function AgendarCitaScreen({ route, navigation }) {
                 <img src={imageUrl} style={{ width: '70px', height: '70px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #333' }} alt={item.nombre} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.cardText}>{item.nombre} - ₡{item.precio}</Text>
-                  <Text style={styles.cardSubtext}>{item.duracion_minutos} min - {item.descripcion}</Text>
+                  <Text style={styles.cardSubtext}>
+                    {item.duracion_minutos ? `${item.duracion_minutos} min - ` : ''}{item.descripcion}
+                  </Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -174,10 +216,10 @@ export default function AgendarCitaScreen({ route, navigation }) {
         <Text style={styles.submitButtonText}>Confirmar Reservación</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.replace('Login')}>
-        <Text style={styles.cancelButtonText}>Regresar a Login</Text>
+      <TouchableOpacity style={styles.backButtonLink} onPress={() => navigation.replace('Login')}>
+        <Text style={styles.backButtonLinkText}>Regresar a Login</Text>
       </TouchableOpacity>
-      
+
       <div style={{ height: '60px' }}></div>
     </div>
   );
@@ -195,6 +237,6 @@ const styles = StyleSheet.create({
   dateTimeText: { color: '#fff', marginBottom: 10, fontSize: 15 },
   submitButton: { backgroundColor: '#d4af37', padding: 16, borderRadius: 8, marginTop: 20, marginBottom: 10 },
   submitButtonText: { color: '#121212', textAlign: 'center', fontWeight: 'bold', fontSize: 18 },
-  cancelButton: { padding: 14, borderRadius: 8, backgroundColor: '#2c1414', borderWidth: 1, borderColor: '#5a2424', marginTop: 5 },
-  cancelButtonText: { color: '#ff6b6b', textAlign: 'center', fontWeight: 'bold', fontSize: 15 }
+  backButtonLink: { marginTop: 20, padding: 10, alignItems: 'center' },
+  backButtonLinkText: { color: '#d4af37', textAlign: 'center', fontSize: 15, textDecorationLine: 'underline', fontWeight: '500' }
 });

@@ -39,8 +39,6 @@ export default function AdminDashboard({ route, navigation }) {
   };
 
   const handleImprimirDesdePantalla = () => {
-    // Al ejecutar window.print() en web, se mandará a imprimir el documento actual.
-    // Para una entrega formal de curso, esto garantiza que la función nativa de impresión se active sin popups bloqueados.
     window.print();
   };
 
@@ -97,6 +95,14 @@ export default function AdminDashboard({ route, navigation }) {
             }
           </View>
         )}
+
+        {/* NUEVO BOTÓN: Agendar Cita desde Administrador */}
+        <TouchableOpacity 
+          style={[styles.primaryButton, { backgroundColor: '#d4af37', borderColor: '#d4af37' }]} 
+          onPress={() => navigation.navigate('AgendarCita', { user })}
+        >
+          <Text style={[styles.primaryButtonText, { color: '#141419', fontWeight: 'bold' }]}>➕ Agendar Nueva Cita</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.primaryButton} onPress={fetchTodasLasCitas}>
           <Text style={styles.primaryButtonText}>🔄 Actualizar Citas</Text>
@@ -188,7 +194,6 @@ const styles = StyleSheet.create({
   globalLogoutButton: { padding: 14, borderRadius: 8, backgroundColor: '#2c1414', borderWidth: 1, borderColor: '#5a2424', marginTop: 5 },
   globalLogoutText: { color: '#ff6b6b', textAlign: 'center', fontWeight: 'bold', fontSize: 15 },
   
-  // Estilos del nuevo Modal estilo factura de barbería
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   invoiceContainer: { backgroundColor: '#ffffff', padding: 25, borderRadius: 12, width: '100%', maxWidth: 360, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 },
   invoiceBranch: { color: '#000000', fontSize: 18, fontWeight: 'bold', textAlign: 'center', fontFamily: 'monospace' },
