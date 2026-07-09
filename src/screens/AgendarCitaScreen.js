@@ -66,7 +66,7 @@ export default function AgendarCitaScreen({ route, navigation }) {
 
     const fechaHoraFinal = `${fechaStr} ${horaStr}:00`;
 
-    // 🔒 REQUERIMIENTO 2: Validar choque de citas para el mismo barbero
+    // 🔒 VALIDACIÓN DE CHOQUE DE CITAS PARA EL MISMO BARBERO
     try {
       const resCitas = await api.get('/citas');
       const listaCitasExistentes = resCitas.data.data || resCitas.data;
@@ -79,7 +79,7 @@ export default function AgendarCitaScreen({ route, navigation }) {
 
         if (citaDuplicada) {
           alert('⚠️ Lo sentimos, este barbero ya tiene una cita agendada para esta hora exacta. Por favor selecciona otro horario o cambia de barbero.');
-          return; // Detiene el flujo de guardado
+          return; // Frena el flujo para que no guarde
         }
       }
     } catch (checkError) {
@@ -216,9 +216,16 @@ export default function AgendarCitaScreen({ route, navigation }) {
         <Text style={styles.submitButtonText}>Confirmar Reservación</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.backButtonLink} onPress={() => navigation.replace('Login')}>
-        <Text style={styles.backButtonLinkText}>Regresar a Login</Text>
-      </TouchableOpacity>
+      {/* 🔄 BOTÓN DINÁMICO E INTELIGENTE DE REGRESAR */}
+      {isInvitado ? (
+        <TouchableOpacity style={styles.backButtonLink} onPress={() => navigation.replace('Login')}>
+          <Text style={styles.backButtonLinkText}>Regresar a Login</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity style={styles.backButtonPanel} onPress={() => navigation.goBack()}>
+          <Text style={styles.backButtonPanelText}>⬅️ Volver al Panel Anterior</Text>
+        </TouchableOpacity>
+      )}
 
       <div style={{ height: '60px' }}></div>
     </div>
@@ -238,5 +245,8 @@ const styles = StyleSheet.create({
   submitButton: { backgroundColor: '#d4af37', padding: 16, borderRadius: 8, marginTop: 20, marginBottom: 10 },
   submitButtonText: { color: '#121212', textAlign: 'center', fontWeight: 'bold', fontSize: 18 },
   backButtonLink: { marginTop: 20, padding: 10, alignItems: 'center' },
-  backButtonLinkText: { color: '#d4af37', textAlign: 'center', fontSize: 15, textDecorationLine: 'underline', fontWeight: '500' }
+  backButtonLinkText: { color: '#d4af37', textAlign: 'center', fontSize: 15, textDecorationLine: 'underline', fontWeight: '500' },
+  // Estilo del botón elegante para usuarios autenticados
+  backButtonPanel: { backgroundColor: '#2a2e3d', padding: 14, borderRadius: 8, marginTop: 15, borderWidth: 1, borderColor: '#4a526b', alignItems: 'center' },
+  backButtonPanelText: { color: '#ffffff', fontWeight: '600', fontSize: 15 }
 });

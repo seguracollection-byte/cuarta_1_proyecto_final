@@ -36,11 +36,9 @@ export default function LoginScreen({ navigation }) {
                 const userEmail = email.toLowerCase().trim();
 
                 // 🛡️ ESCUDO DE REDIRECCIÓN PARA ADMINISTRADOR
-                // Si el rol es admin/administrador, O si el correo ingresado contiene la palabra 'admin'
                 if (userRol === 'admin' || userRol === 'administrador' || userEmail.includes('admin')) {
                     console.log('🚀 Redirigiendo al Panel de Administración');
                     
-                    // Aseguramos un objeto de usuario de respaldo por si el backend mandó campos vacíos
                     const secureAdminUser = {
                         id: loggedUser.id || 4,
                         nombre: loggedUser.nombre || "Guillermo Admin",
@@ -50,11 +48,9 @@ export default function LoginScreen({ navigation }) {
                     
                     navigation.replace('AdminDashboard', { user: secureAdminUser });
                 } 
-                // Redirección para el Barbero (mantiene tu flujo original intacto)
                 else if (userRol === 'barbero') {
                     navigation.replace('BarberoDashboard', { user: loggedUser });
                 } 
-                // Redirección por defecto para los clientes
                 else {
                     navigation.replace('ClienteHome', { user: loggedUser });
                 }
@@ -112,6 +108,11 @@ export default function LoginScreen({ navigation }) {
                     )}
                 </TouchableOpacity>
 
+                {/* Enlace elegante de Olvidé mi Contraseña */}
+                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={{ marginTop: 15 }}>
+                    <Text style={styles.forgotText}>¿Olvidaste tu contraseña? Recupérala aquí</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity onPress={() => navigation.navigate('Register')}>
                     <Text style={styles.linkText}>¿No tienes cuenta? Regístrate aquí</Text>
                 </TouchableOpacity>
@@ -128,13 +129,14 @@ export default function LoginScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-    outerContainer: { flex: 1, backgroundColor: '#121212' },
+    outerContainer: { flex: 1, backgroundColor: '#141419', height: '100vh' },
     scrollContent: { flexGrow: 1, justifyContent: 'center' },
-    container: { padding: 20 },
-    logoTitle: { color: '#d4af37', fontSize: 32, fontWeight: 'bold', textAlign: 'center', marginBottom: 40 },
-    input: { backgroundColor: '#1e1e1e', color: '#ffffff', padding: 15, borderRadius: 8, marginBottom: 15, borderWidth: 1, borderColor: '#333' },
+    container: { padding: 25 },
+    logoTitle: { color: '#d4af37', fontSize: 32, fontWeight: 'bold', textAlign: 'center', marginBottom: 40, letterSpacing: 1 },
+    input: { backgroundColor: '#1e1e24', color: '#ffffff', padding: 15, borderRadius: 8, marginBottom: 15, borderWidth: 1, borderColor: '#2c2c35', fontSize: 15 },
     button: { backgroundColor: '#d4af37', padding: 15, borderRadius: 8, marginTop: 10 },
-    buttonText: { color: '#121212', textAlign: 'center', fontWeight: 'bold', fontSize: 16 },
+    buttonText: { color: '#141419', textAlign: 'center', fontWeight: 'bold', fontSize: 16 },
+    forgotText: { color: '#e5c158', textAlign: 'center', fontSize: 14, textDecorationLine: 'underline', fontWeight: '500' },
     linkText: { color: '#aaa', textAlign: 'center', marginTop: 20, fontSize: 14 },
     guestButton: { marginTop: 30, padding: 10 },
     guestButtonText: { color: '#d4af37', textAlign: 'center', fontSize: 15, textDecorationLine: 'underline' }

@@ -1,3 +1,4 @@
+// src/screens/RegisterScreen.js
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import api from '../services/api';
@@ -11,7 +12,7 @@ export default function RegisterScreen({ navigation }) {
 
     const handleRegister = async () => {
         if (!nombre || !email || !telefono || !password) {
-            Alert.alert('Error', 'Todos los campos son obligatorios.');
+            alert('Todos los campos son obligatorios.');
             return;
         }
 
@@ -26,24 +27,27 @@ export default function RegisterScreen({ navigation }) {
                 rol: 'cliente' // Por defecto se registra como cliente
             });
 
-            if (response.data.success) {
-                // 1. Muestra la alerta de éxito tradicional
-                Alert.alert('¡Éxito!', 'Usuario creado correctamente.');
+            console.log("Respuesta servidor:", response.data);
 
-                // 2. Hace la redirección automática e inmediata sin depender del botón
+            if (response.data.success) {
+                // Compatible con Web y Móvil para garantizar la redirección automática
+                alert('¡Éxito! Usuario creado correctamente.');
                 navigation.navigate('Login');
+            } else {
+                alert(response.data.message || 'El registro fue rechazado.');
             }
         } catch (error) {
             console.log('Error de registro:', error.response?.data);
-            const errorMsg = error.response?.data?.message || 'Error al procesar el registro';
-            Alert.alert('Error de Registro', errorMsg);
+            const errorMsg = error.response?.data?.message || 'Error al procesar el registro.';
+            alert(errorMsg);
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <ScrollView contentContainerStyle={styles.container}>
+        <ScrollView style={styles.outerContainer} contentContainerStyle={styles.container}>
+            <Text style={styles.logoTitle}>Pierce Barber Shop</Text>
             <Text style={styles.title}>Crear Cuenta</Text>
 
             <TextInput
@@ -85,7 +89,7 @@ export default function RegisterScreen({ navigation }) {
 
             <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>
                 {loading ? (
-                    <ActivityIndicator color="#000" />
+                    <ActivityIndicator color="#141419" />
                 ) : (
                     <Text style={styles.buttonText}>Registrarse</Text>
                 )}
@@ -95,7 +99,6 @@ export default function RegisterScreen({ navigation }) {
                 <Text style={styles.linkText}>¿Ya tienes cuenta? Inicia sesión</Text>
             </TouchableOpacity>
 
-            {/* 🆕 BOTÓN ESTRATÉGICO DE REGRESAR AL LOGIN */}
             <TouchableOpacity
                 style={styles.backButton}
                 onPress={() => navigation.navigate('Login')}
@@ -107,13 +110,14 @@ export default function RegisterScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-    container: { flexGrow: 1, justifyContent: 'center', padding: 20, backgroundColor: '#121212' },
-    title: { fontSize: 32, fontWeight: 'bold', color: '#d4af37', marginBottom: 40, textAlign: 'center' },
-    input: { backgroundColor: '#1e1e1e', color: '#fff', padding: 15, borderRadius: 8, marginBottom: 15, fontSize: 16 },
+    outerContainer: { flex: 1, backgroundColor: '#141419' },
+    container: { flexGrow: 1, justifyContent: 'center', padding: 25 },
+    logoTitle: { color: '#d4af37', fontSize: 26, fontWeight: 'bold', textAlign: 'center', letterSpacing: 1 },
+    title: { fontSize: 16, fontWeight: '500', color: '#ffffff', marginBottom: 30, textAlign: 'center', marginTop: 5 },
+    input: { backgroundColor: '#1e1e24', color: '#fff', padding: 15, borderRadius: 8, marginBottom: 15, fontSize: 16, borderWidth: 1, borderColor: '#2c2c35' },
     button: { backgroundColor: '#d4af37', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10 },
-    buttonText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
+    buttonText: { color: '#141419', fontSize: 16, fontWeight: 'bold' },
     linkText: { color: '#aaa', textAlign: 'center', marginTop: 25, fontSize: 14 },
-    // 🆕 Estilos del nuevo botón alineados con el diseño oscuro de Pierce Barber Shop
-    backButton: { marginTop: 30, padding: 10 },
+    backButton: { marginTop: 20, padding: 10 },
     backButtonText: { color: '#d4af37', textAlign: 'center', fontSize: 15, textDecorationLine: 'underline' }
 });
