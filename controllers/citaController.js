@@ -1,24 +1,27 @@
+// controllers/citaController.js
 const pool = require('../config/database'); 
+// 🌟 IMPORTACIÓN: Traemos el servicio de correos que configuramos antes
+const emailService = require('../services/emailService');
 
-// 1. Obtener todas las citas (Corregido para soportar Clientes Registrados e Invitados de forma segura)
+// 1. Obtener todas las citas (Corregidas las uniones según el esquema real de MySQL)
 const getCitas = async (req, res) => {
     try {
-        // Usamos un query dinámico con LEFT JOIN para evitar colapsos por valores NULL en los invitados
         const query = `
             SELECT 
-                c.idcitas AS id,
+                c.id AS id,
                 c.fecha_hora,
                 c.usuarios_id,
+                c.barbero_id,
                 c.invitado_nombre,
                 c.invitado_email,
                 c.invitado_telefono,
-                s.nombre AS servicio,
+                s.nombre AS servicio_nombre,
                 s.precio AS precio,
                 s.descripcion AS servicio_descripcion,
-                b.nombre AS barbero,
-                u.nombre AS cliente_registrado
+                b.nombre AS barbero_nombre,
+                u.nombre AS cliente_registrado_nombre
             FROM citas c
-            LEFT JOIN servicios s ON c.servicios_idservicios = s.idservicios
+            LEFT JOIN servicios s ON c.servicios_idservicios = s.id
             LEFT JOIN usuarios b ON c.barbero_id = b.id
             LEFT JOIN usuarios u ON c.usuarios_id = u.id
             ORDER BY c.fecha_hora ASC
@@ -26,25 +29,28 @@ const getCitas = async (req, res) => {
 
         const [rows] = await pool.query(query);
 
-        // Mapeamos los resultados para asegurar que los páneles del frontend lean siempre la misma estructura
         const citasFormateadas = rows.map(cita => {
-            // Regla de oro: si hay cliente_registrado se usa ese, sino usamos el nombre del invitado
-            let nombreCliente = 'Cliente Invitado';
-            if (cita.cliente_registrado) {
-                nombreCliente = cita.cliente_registrado;
+            let nombreClienteFinal = 'Cliente Invitado';
+            if (cita.cliente_registrado_nombre) {
+                nombreClienteFinal = cita.cliente_registrado_nombre;
             } else if (cita.invitado_nombre) {
-                nombreCliente = cita.invitado_nombre;
+                nombreClienteFinal = cita.invitado_nombre;
             }
 
             return {
                 id: cita.id,
                 fecha_hora: cita.fecha_hora,
-                servicio: cita.servicio || 'Servicio no especificado',
-                precio: cita.precio || 0,
-                barbero: cita.barbero || 'Barbero no asignado',
-                cliente: nombreCliente, // El frontend leerá este campo unificado directamente
-                email: cita.invitado_email || '',
-                telefono: cita.invitado_telefono || '',
+                usuarios_id: cita.usuarios_id,
+                barbero_id: cita.barbero_id,
+                invitado_nombre: cita.invitado_nombre,
+                invitado_email: cita.invitado_email,
+                invitado_telefono: cita.invitado_telefono,
+                
+                servicio_nombre: cita.servicio_nombre || 'Servicio no especificado',
+                precio: cita.precio || '0.00',
+                barbero_nombre: cita.barbero_nombre || 'Barbero no asignado',
+                cliente_nombre: nombreClienteFinal, 
+                
                 es_invitado: !cita.usuarios_id
             };
         });
@@ -59,7 +65,7 @@ const getCitas = async (req, res) => {
     }
 };
 
-// 2. Crear una nueva cita (Invitado o Registrado)
+// 2. Crear una nueva cita (Invitado o Registrado) con Notificación por Correo
 const createCita = async (req, res) => {
     const { 
         fecha_hora,
@@ -79,6 +85,7 @@ const createCita = async (req, res) => {
             });
         }
 
+        // Insertar la cita en la BD
         const [result] = await pool.query(
             `INSERT INTO citas 
             (fecha_hora, servicios_idservicios, barbero_id, usuarios_id, invitado_nombre, invitado_email, invitado_telefono) 
@@ -94,14 +101,69 @@ const createCita = async (req, res) => {
             ]
         );
 
+        const nuevaCitaId = result.insertId;
+
+        // 🌟 MEJORA: Consultamos los datos reales del servicio, barbero y usuario para armar el correo profesional
+        const [detalles] = await pool.query(`
+            SELECT 
+                s.nombre AS servicio_nombre,
+                s.precio AS precio,
+                b.nombre AS barbero_nombre,
+                u.nombre AS usuario_nombre,
+                u.email AS usuario_email
+            FROM citas c
+            LEFT JOIN servicios s ON c.servicios_idservicios = s.id
+            LEFT JOIN usuarios b ON c.barbero_id = b.id
+            LEFT JOIN usuarios u ON c.usuarios_id = u.id
+            WHERE c.id = ?
+        `, [nuevaCitaId]);
+
+        if (detalles.length > 0) {
+            const infoCita = detalles[0];
+            
+            // Determinar a quién y qué nombre poner en el correo
+            const emailDestino = usuarios_id ? infoCita.usuario_email : invitado_email;
+            const nombreCliente = usuarios_id ? infoCita.usuario_nombre : invitado_nombre;
+            const tipoCliente = usuarios_id ? "Cliente Registrado" : "Cliente Invitado";
+
+            if (emailDestino) {
+                // Estructura HTML elegante con la estética de la barbería
+                const cuerpoHtml = `
+                    <div style="background-color: #141419; color: #ffffff; padding: 25px; font-family: sans-serif; border-radius: 10px; max-width: 500px; margin: auto; border: 1px solid #d4af37;">
+                        <h1 style="color: #d4af37; text-align: center; margin-bottom: 5px;">Pierce Barber Shop</h1>
+                        <p style="text-align: center; color: #a0a0a9; font-size: 14px; margin-top: 0;">¡Tu espacio está reservado!</p>
+                        <hr style="border-color: #2c2c35;" />
+                        
+                        <p>Hola <strong>${nombreCliente}</strong>,</p>
+                        <p>Confirmamos que tu cita ha sido agendada con éxito. Aquí tienes el resumen de tu reservación en la modalidad de <strong>${tipoCliente}</strong>:</p>
+                        
+                        <div style="background-color: #1e1e24; padding: 15px; border-radius: 8px; border-left: 4px solid #d4af37; margin: 20px 0;">
+                            <p style="margin: 4px 0;">📅 <strong>Fecha y Hora:</strong> ${fecha_hora}</p>
+                            <p style="margin: 4px 0;">💈 <strong>Servicio:</strong> ${infoCita.servicio_nombre || 'Servicio de Barbería'}</p>
+                            <p style="margin: 4px 0;">✂️ <strong>Barbero:</strong> ${infoCita.barbero_nombre || 'Especialista Asignado'}</p>
+                            <p style="margin: 4px 0;">💰 <strong>Precio:</strong> ₡${infoCita.precio || '0.00'}</p>
+                        </div>
+                        
+                        <p style="font-size: 13px; color: #8a8a93; text-align: center; margin-top: 25px;">
+                            Recuerda llegar 5 minutos antes. Si necesitas cancelar, avísanos con tiempo.<br/>
+                            <strong>Pierce Barber Shop © 2026</strong>
+                        </p>
+                    </div>
+                `;
+
+                // Disparamos el envío asíncrono para no retrasar la respuesta del servidor
+                emailService.enviarCorreo(emailDestino, 'Confirmación de tu Cita - Pierce Barber Shop', cuerpoHtml);
+            }
+        }
+
         res.status(201).json({
             success: true,
-            message: 'Cita agendada exitosamente',
-            citaId: result.insertId
+            message: 'Cita agendada exitosamente y notificación enviada.',
+            citaId: nuevaCitaId
         });
 
     } catch (error) {
-        console.error('❌ Error real al crear la cita en MariaDB:', error);
+        console.error('❌ Error real al crear la cita en MariaDB/MySQL:', error);
         res.status(500).json({ success: false, message: 'Error interno del servidor' });
     }
 };
