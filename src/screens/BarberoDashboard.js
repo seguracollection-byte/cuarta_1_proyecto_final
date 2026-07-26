@@ -12,6 +12,8 @@ export default function BarberoDashboard({ route, navigation }) {
   const [pwdModalVisible, setPwdModalVisible] = useState(false);
   const [nuevaPassword, setNuevaPassword] = useState('');
   const [confirmarPassword, setConfirmarPassword] = useState('');
+  const [showNuevaPassword, setShowNuevaPassword] = useState(false);
+  const [showConfirmarPassword, setShowConfirmarPassword] = useState(false);
   const [pwdLoading, setPwdLoading] = useState(false);
 
   useFocusEffect(
@@ -146,23 +148,33 @@ export default function BarberoDashboard({ route, navigation }) {
             <Text style={styles.pwdTitle}>🔑 Actualizar Contraseña</Text>
             <Text style={styles.pwdSubtitle}>Reemplaza tu clave temporal por una combinación definitiva y segura.</Text>
             
-            <TextInput
-              style={styles.pwdInput}
-              placeholder="Nueva Contraseña"
-              placeholderTextColor="#666"
-              secureTextEntry
-              value={nuevaPassword}
-              onChangeText={setNuevaPassword}
-            />
+            <View style={styles.pwdInputContainer}>
+              <TextInput
+                style={styles.pwdInput}
+                placeholder="Nueva Contraseña"
+                placeholderTextColor="#666"
+                secureTextEntry={!showNuevaPassword}
+                value={nuevaPassword}
+                onChangeText={setNuevaPassword}
+              />
+              <TouchableOpacity style={styles.eyeButton} onPress={() => setShowNuevaPassword(!showNuevaPassword)}>
+                <Text style={styles.eyeText}>{showNuevaPassword ? '🙈' : '👁️'}</Text>
+              </TouchableOpacity>
+            </View>
 
-            <TextInput
-              style={styles.pwdInput}
-              placeholder="Confirmar Contraseña"
-              placeholderTextColor="#666"
-              secureTextEntry
-              value={confirmarPassword}
-              onChangeText={setConfirmarPassword}
-            />
+            <View style={styles.pwdInputContainer}>
+              <TextInput
+                style={styles.pwdInput}
+                placeholder="Confirmar Contraseña"
+                placeholderTextColor="#666"
+                secureTextEntry={!showConfirmarPassword}
+                value={confirmarPassword}
+                onChangeText={setConfirmarPassword}
+              />
+              <TouchableOpacity style={styles.eyeButton} onPress={() => setShowConfirmarPassword(!showConfirmarPassword)}>
+                <Text style={styles.eyeText}>{showConfirmarPassword ? '🙈' : '👁️'}</Text>
+              </TouchableOpacity>
+            </View>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
               <TouchableOpacity style={styles.pwdCancelBoton} onPress={() => setPwdModalVisible(false)}>
@@ -208,7 +220,10 @@ const styles = StyleSheet.create({
   pwdContainer: { backgroundColor: '#1e1e24', padding: 22, borderRadius: 12, width: '100%', maxWidth: 360, borderWidth: 1, borderColor: '#4a526b' },
   pwdTitle: { color: '#d4af37', fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
   pwdSubtitle: { color: '#a0a0a9', fontSize: 12, marginBottom: 15, lineHeight: 16 },
-  pwdInput: { backgroundColor: '#141419', color: '#fff', padding: 12, borderRadius: 6, marginBottom: 12, fontSize: 15, borderWidth: 1, borderColor: '#2c2c35' },
+  pwdInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#141419', borderRadius: 6, borderWidth: 1, borderColor: '#2c2c35', marginBottom: 12 },
+  pwdInput: { flex: 1, color: '#fff', padding: 12, fontSize: 15 },
+  eyeButton: { paddingHorizontal: 12 },
+  eyeText: { fontSize: 16 },
   pwdCancelBoton: { flex: 0.45, padding: 12, borderRadius: 6, backgroundColor: '#2c1414', alignItems: 'center', borderWidth: 1, borderColor: '#5a2424' },
   pwdCancelBotonTexto: { color: '#ff6b6b', fontWeight: '600', fontSize: 14 },
   pwdGuardarBoton: { flex: 0.45, padding: 12, borderRadius: 6, backgroundColor: '#d4af37', alignItems: 'center' },

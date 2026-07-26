@@ -5,6 +5,7 @@ import api from '../services/api';
 export default function LoginScreen({ navigation }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const handleLogin = async () => {
@@ -91,14 +92,19 @@ export default function LoginScreen({ navigation }) {
                     autoCapitalize="none"
                 />
 
-                <TextInput
-                    style={styles.input}
-                    placeholder="Contraseña"
-                    placeholderTextColor="#666"
-                    secureTextEntry
-                    value={password}
-                    onChangeText={setPassword}
-                />
+                <View style={styles.passwordContainer}>
+                    <TextInput
+                        style={styles.passwordInput}
+                        placeholder="Contraseña"
+                        placeholderTextColor="#666"
+                        secureTextEntry={!showPassword}
+                        value={password}
+                        onChangeText={setPassword}
+                    />
+                    <TouchableOpacity style={styles.eyeButton} onPress={() => setShowPassword(!showPassword)}>
+                        <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁️'}</Text>
+                    </TouchableOpacity>
+                </View>
 
                 <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
                     {loading ? (
@@ -134,6 +140,10 @@ const styles = StyleSheet.create({
     container: { padding: 25 },
     logoTitle: { color: '#d4af37', fontSize: 32, fontWeight: 'bold', textAlign: 'center', marginBottom: 40, letterSpacing: 1 },
     input: { backgroundColor: '#1e1e24', color: '#ffffff', padding: 15, borderRadius: 8, marginBottom: 15, borderWidth: 1, borderColor: '#2c2c35', fontSize: 15 },
+    passwordContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e1e24', borderRadius: 8, borderWidth: 1, borderColor: '#2c2c35', marginBottom: 15 },
+    passwordInput: { flex: 1, color: '#ffffff', padding: 15, fontSize: 15 },
+    eyeButton: { paddingHorizontal: 15 },
+    eyeText: { fontSize: 18 },
     button: { backgroundColor: '#d4af37', padding: 15, borderRadius: 8, marginTop: 10 },
     buttonText: { color: '#141419', textAlign: 'center', fontWeight: 'bold', fontSize: 16 },
     forgotText: { color: '#e5c158', textAlign: 'center', fontSize: 14, textDecorationLine: 'underline', fontWeight: '500' },

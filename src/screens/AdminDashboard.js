@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../services/api';
 
 export default function AdminDashboard({ route, navigation }) {
@@ -17,9 +18,11 @@ export default function AdminDashboard({ route, navigation }) {
   // Estados para cambio de contraseña
   const [nuevaPassword, setNuevaPassword] = useState('');
   const [confirmarPassword, setConfirmarPassword] = useState('');
+  const [showNuevaPassword, setShowNuevaPassword] = useState(false);
+  const [showConfirmarPassword, setShowConfirmarPassword] = useState(false);
   const [pwdLoading, setPwdLoading] = useState(false);
 
-  // Estado dinámico para alertas de canjes
+  // Alertas de canjes
   const [alertasCanjes, setAlertasCanjes] = useState([]);
 
   useFocusEffect(
@@ -32,74 +35,23 @@ export default function AdminDashboard({ route, navigation }) {
     try {
       setLoading(true);
       
-      // 1. Traer todas las citas generales del sistema
       const responseCitas = await api.get('/citas');
       const listaCitas = responseCitas.data.data || responseCitas.data;
       const citasLimpias = Array.isArray(listaCitas) ? listaCitas : [];
       setCitas(citasLimpias);
 
-      // 2. Intentar consultar endpoint de canjes específicos
-      try {
-        const responseCanjes = await api.get('/citas/canjes/pendientes');
-        const listaCanjes = responseCanjes.data.data || responseCanjes.data;
-        
-        if (Array.isArray(listaCanjes) && listaCanjes.length > 0) {
-          setAlertasCanjes(listaCanjes);
-          return; // Si el backend ya responde con datos estructurados, los usamos directamente
-        }
-      } catch (e) {
-        console.log("⚠️ Endpoint /canjes/pendientes no disponible o vacío. Activando motor de cálculo en tiempo real.");
-      }
-
-      // 3. RESPALDO INTELIGENTE EN VIVO: Si el endpoint falló o vino vacío, calculamos los puntos por cliente
-      // Esto asegura que clientes como Corinna aparezcan basándose en el historial real de citas cargado.
-      const mapeoPuntosClientes = {};
-      citasLimpias.forEach(cita => {
-        const nombreCliente = cita.invitado_nombre || cita.cliente_nombre || 'Cliente Registrado';
-        const servicio = (cita.servicio_nombre || '').toLowerCase();
-        
-        if (!mapeoPuntosClientes[nombreCliente]) {
-          mapeoPuntosClientes[nombreCliente] = 0;
-        }
-        
-        // Sumamos los puntos correspondientes por cada cita encontrada en el sistema
-        if (servicio.includes('servicio vip')) {
-          mapeoPuntosClientes[nombreCliente] += 25;
-        } else {
-          mapeoPuntosClientes[nombreCliente] += 15;
-        }
-      });
-
-      // Generar alertas automáticas para cualquier cliente que supere la barrera de canje (75 puntos)
-      const alertasCalculadas = [];
-      Object.keys(mapeoPuntosClientes).forEach((nombre, index) => {
-        const puntos = mapeoPuntosClientes[nombre];
-        if (puntos >= 100) {
-          alertasCalculadas.push({
-            id: `calc-vip-${index}`,
-            cliente_nombre: nombre,
-            premio_nombre: 'Servicio VIP Gratis (100 Pts)'
-          });
-        } else if (puntos >= 75) {
-          alertasCalculadas.push({
-            id: `calc-combo-${index}`,
-            cliente_nombre: nombre,
-            premio_nombre: 'Combo VIP Gratis (75 Pts)'
-          });
-        }
-      });
-
-      setAlertasCanjes(alertasCalculadas);
+      // Cargar solicitudes de canje pendientes
+      const canjesPendientesStr = await AsyncStorage.getItem('solicitudes_canjes_pendientes');
+      let solicitudesClientes = canjesPendientesStr ? JSON.parse(canjesPendientesStr) : [];
+      
+      const pendientes = solicitudesClientes.filter(s => s.estado === 'pendiente');
+      setAlertasCanjes(pendientes);
 
     } catch (error) {
-      console.error("❌ Error general en Admin Server 500. Levantando simulación local:", error);
-      // Respaldo absoluto por caída de base de datos
+      console.error("❌ Error Server 500. Levantando respaldo local:", error);
       setCitas([
         { id: 1, fecha_hora: '2026-07-06 11:00:00', cliente_nombre: 'Corinna', servicio_nombre: 'Corte de Cabello Clásico', barbero_id: 5, barbero_nombre: 'Chema Barbero 1', precio: '5000.00' },
         { id: 2, fecha_hora: '2026-07-06 14:30:00', cliente_nombre: 'Andrés Fonseca', servicio_nombre: 'Arreglo de Barba Premium', barbero_id: 8, barbero_nombre: 'Alex Barbero 2', precio: '3000.00' }
-      ]);
-      setAlertasCanjes([
-        { id: 'sim-1', cliente_nombre: 'Corinna', premio_nombre: 'Combo VIP Gratis (Billetera Activa)' }
       ]);
     } finally {
       setLoading(false);
@@ -150,15 +102,33 @@ export default function AdminDashboard({ route, navigation }) {
     window.print();
   };
 
-  const despacharAlertaCanje = async (id) => {
+  const aprobarCanje = async (alertaObj) => {
     try {
-      await api.post(`/citas/canjes/despachar`, { idCanje: id });
-      setAlertasCanjes(prev => prev.filter(alerta => alerta.id !== id));
-      alert('¡Canje despachado y procesado con éxito!');
+      const clienteId = alertaObj?.cliente_id || 'general';
+      const puntosConsumidos = alertaObj?.puntosConsumidos || 75;
+
+      // 1. Cambiar el estado a 'aprobado'
+      const canjesPendientesStr = await AsyncStorage.getItem('solicitudes_canjes_pendientes');
+      let lista = canjesPendientesStr ? JSON.parse(canjesPendientesStr) : [];
+      
+      const listaActualizada = lista.map(item => {
+        if (item.id === alertaObj.id) {
+          return { ...item, estado: 'aprobado' };
+        }
+        return item;
+      });
+
+      await AsyncStorage.setItem('solicitudes_canjes_pendientes', JSON.stringify(listaActualizada));
+
+      // 2. Registrar el descuento de puntos para el cliente
+      const descontadosActuales = await AsyncStorage.getItem(`puntos_descontados_${clienteId}`);
+      const totalDescontado = (descontadosActuales ? parseInt(descontadosActuales, 10) : 0) + puntosConsumidos;
+      await AsyncStorage.setItem(`puntos_descontados_${clienteId}`, String(totalDescontado));
+
+      alert('¡Canje Aprobado! Los puntos han sido descontados y el cliente verá la confirmación.');
       fetchDatosDashboard();
     } catch (error) {
-      setAlertasCanjes(prev => prev.filter(alerta => alerta.id !== id));
-      alert('Canje marcado como entregado con éxito.');
+      alert('Error al aprobar el canje.');
     }
   };
 
@@ -177,17 +147,18 @@ export default function AdminDashboard({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Alertas de canjes calculadas de forma dinámica */}
+      {/* ALERTAS DE CANJE PENDIENTE */}
       {alertasCanjes.length > 0 && (
         <View style={styles.alertasContainer}>
           <Text style={styles.alertasTitle}>⚠️ Solicitudes de Canjes (Puntos)</Text>
           {alertasCanjes.map(alerta => (
             <View key={alerta.id} style={styles.alertaCard}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.alertaTextoCliente}>🧔 Cliente: {alerta.cliente_nombre || alerta.cliente}</Text>
-                <Text style={styles.alertaTextoPremio}>🎁 Premio: <Text style={{ color: '#d4af37', fontWeight: 'bold' }}>{alerta.premio_nombre || alerta.premio}</Text></Text>
+                <Text style={styles.alertaTextoCliente}>🧔 Cliente: {alerta.cliente_nombre}</Text>
+                <Text style={styles.alertaTextoPremio}>🎁 Premio: <Text style={{ color: '#d4af37', fontWeight: 'bold' }}>{alerta.premio_nombre}</Text></Text>
+                <Text style={{ color: '#aaa', fontSize: 11, marginTop: 2 }}>⏰ Horario: {alerta.horarioPermitido}</Text>
               </View>
-              <TouchableOpacity style={styles.alertaBotonCheck} onPress={() => despacharAlertaCanje(alerta.id)}>
+              <TouchableOpacity style={styles.alertaBotonCheck} onPress={() => aprobarCanje(alerta)}>
                 <Text style={styles.alertaBotonCheckTexto}>✓ Despachar</Text>
               </TouchableOpacity>
             </View>
@@ -268,23 +239,33 @@ export default function AdminDashboard({ route, navigation }) {
             <Text style={styles.pwdTitle}>🔑 Actualizar Contraseña</Text>
             <Text style={styles.pwdSubtitle}>Reemplaza la clave temporal enviada a tu correo por una combinación definitiva.</Text>
             
-            <TextInput
-              style={styles.pwdInput}
-              placeholder="Nueva Contraseña"
-              placeholderTextColor="#666"
-              secureTextEntry
-              value={nuevaPassword}
-              onChangeText={setNuevaPassword}
-            />
+            <View style={styles.pwdInputContainer}>
+              <TextInput
+                style={styles.pwdInput}
+                placeholder="Nueva Contraseña"
+                placeholderTextColor="#666"
+                secureTextEntry={!showNuevaPassword}
+                value={nuevaPassword}
+                onChangeText={setNuevaPassword}
+              />
+              <TouchableOpacity style={styles.eyeButton} onPress={() => setShowNuevaPassword(!showNuevaPassword)}>
+                <Text style={styles.eyeText}>{showNuevaPassword ? '🙈' : '👁️'}</Text>
+              </TouchableOpacity>
+            </View>
 
-            <TextInput
-              style={styles.pwdInput}
-              placeholder="Confirmar Contraseña"
-              placeholderTextColor="#666"
-              secureTextEntry
-              value={confirmarPassword}
-              onChangeText={setConfirmarPassword}
-            />
+            <View style={styles.pwdInputContainer}>
+              <TextInput
+                style={styles.pwdInput}
+                placeholder="Confirmar Contraseña"
+                placeholderTextColor="#666"
+                secureTextEntry={!showConfirmarPassword}
+                value={confirmarPassword}
+                onChangeText={setConfirmarPassword}
+              />
+              <TouchableOpacity style={styles.eyeButton} onPress={() => setShowConfirmarPassword(!showConfirmarPassword)}>
+                <Text style={styles.eyeText}>{showConfirmarPassword ? '🙈' : '👁️'}</Text>
+              </TouchableOpacity>
+            </View>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
               <TouchableOpacity style={styles.pwdCancelBoton} onPress={() => setPwdModalVisible(false)}>
@@ -392,7 +373,10 @@ const styles = StyleSheet.create({
   pwdContainer: { backgroundColor: '#1e1e24', padding: 22, borderRadius: 12, width: '100%', maxWidth: 360, borderWidth: 1, borderColor: '#4a526b' },
   pwdTitle: { color: '#d4af37', fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
   pwdSubtitle: { color: '#a0a0a9', fontSize: 12, marginBottom: 15, lineHeight: 16 },
-  pwdInput: { backgroundColor: '#141419', color: '#fff', padding: 12, borderRadius: 6, marginBottom: 12, fontSize: 15, borderWidth: 1, borderColor: '#2c2c35' },
+  pwdInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#141419', borderRadius: 6, borderWidth: 1, borderColor: '#2c2c35', marginBottom: 12 },
+  pwdInput: { flex: 1, color: '#fff', padding: 12, fontSize: 15 },
+  eyeButton: { paddingHorizontal: 12 },
+  eyeText: { fontSize: 16 },
   pwdCancelBoton: { flex: 0.45, padding: 12, borderRadius: 6, backgroundColor: '#2c1414', alignItems: 'center', borderWidth: 1, borderColor: '#5a2424' },
   pwdCancelBotonTexto: { color: '#ff6b6b', fontWeight: '600', fontSize: 14 },
   pwdGuardarBoton: { flex: 0.45, padding: 12, borderRadius: 6, backgroundColor: '#d4af37', alignItems: 'center' },
