@@ -147,8 +147,34 @@ const recuperarPassword = async (req, res) => {
     }
 };
 
+// 🔑 NUEVA FUNCIÓN: Actualización directa de contraseña en la Base de Datos
+const updatePassword = async (req, res) => {
+    const { id, password } = req.body;
+
+    if (!id || !password) {
+        return res.status(400).json({ success: false, message: 'Faltan datos obligatorios (ID o Contraseña).' });
+    }
+
+    try {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const [result] = await pool.query('UPDATE usuarios SET password = ? WHERE id = ?', [hashedPassword, id]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+        }
+
+        return res.status(200).json({ success: true, message: 'Contraseña actualizada correctamente.' });
+    } catch (error) {
+        console.error('❌ Error al actualizar la contraseña:', error);
+        return res.status(500).json({ success: false, message: 'Error interno al actualizar la contraseña.' });
+    }
+};
+
 module.exports = {
     register,
     login,
-    recuperarPassword
+    recuperarPassword,
+    updatePassword
 };
